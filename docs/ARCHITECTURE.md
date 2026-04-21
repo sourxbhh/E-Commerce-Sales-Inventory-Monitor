@@ -4,8 +4,15 @@
 
 ```mermaid
 flowchart LR
-    subgraph Generator["Order Generator (Python)"]
-        GEN[order_producer.py\nFaker + weighted popularity\nburst injection]
+    subgraph External["External data source"]
+        FSA[fakestoreapi.com\nGET /products\nGET /carts]
+    end
+
+    subgraph LiveEdge["FastAPI live-edge service"]
+        SYNC[fakestore_sync.py\n(runs on boot + on demand)]
+        ENGINE[order_engine.py\nreal catalog + mined basket stats\nburst + drain triggers]
+        WS[[WebSocket /stream/orders]]
+        HTTP[[HTTP /products /stats /trigger/*]]
     end
 
     subgraph Broker["Apache Kafka"]
@@ -40,7 +47,12 @@ flowchart LR
 
     BI[Power BI Desktop\nDirectQuery, 1-min refresh]
 
-    GEN --> TOP1
+    FSA --> SYNC
+    FSA --> ENGINE
+    SYNC --> PRD
+    ENGINE --> TOP1
+    ENGINE --> WS
+    ENGINE --> HTTP
     TOP1 --> READ
     FB --> ORD
     FB --> SM
@@ -61,7 +73,9 @@ flowchart LR
 
 | Component | Role | Runtime |
 |---|---|---|
-| **order_producer.py** | Generate realistic orders + bursts | Python process |
+| **fakestoreapi.com** | Real product catalog + historical carts | External HTTP |
+| **fakestore_sync.py** | Hydrates `products` from FakeStoreAPI | one-shot Python |
+| **api/main.py (FastAPI)** | Live edge: order engine, WebSocket, HTTP triggers, Kafka producer | uvicorn process |
 | **Kafka / Zookeeper** | Durable, replayable event bus | Docker |
 | **stream_processor.py** | Parse, window, aggregate, upsert, decrement inventory, emit low-stock alerts | Spark driver |
 | **detector.py** | Revenue-spike anomaly detection | Python process |
@@ -71,12 +85,20 @@ flowchart LR
 
 ## Data flow
 
-1. Generator emits one order every 2-5s (JSON, keyed by `order_id`).
-   Every `BURST_EVERY_SECONDS` it emits a 10-15s burst of 30-60 orders
-   to exercise the anomaly path.
-2. Spark consumes the `orders` topic with a 10-minute watermark,
+1. On boot, `scripts/fakestore_sync.py` pulls the real catalog from
+   fakestoreapi.com and upserts it into `products`. Stock +
+   `popularity_weight` are synthesized from `rating.count`.
+2. The FastAPI service loads the catalog from MySQL and mines
+   basket-size / quantity distributions from FakeStoreAPI's `/carts`
+   endpoint.
+3. Its background task emits one order every 2-5s keyed by
+   `order_id`: publishes to Kafka, fans out to any connected
+   WebSocket subscribers. Every `BURST_EVERY_SECONDS` it emits a
+   10-15s burst. `POST /trigger/burst` and `/trigger/drain` accept
+   on-demand triggers from the demo controller or any HTTP client.
+4. Spark consumes the `orders` topic with a 10-minute watermark,
    giving late-arriving events a chance to join the correct window.
-3. Inside `foreachBatch`:
+5. Inside `foreachBatch`:
    - Raw orders → `orders` (append).
    - Exploded line items → `order_items` (append).
    - 1-min revenue aggregate → `sales_metrics` via `_stg_*` staging
@@ -85,15 +107,15 @@ flowchart LR
    - `products.stock_quantity` decremented and `inventory_log` insert.
    - New `LOW_STOCK` alert rows inserted where `stock <= threshold`
      (10-minute dedupe guard).
-4. `detector.py` polls `sales_metrics` every 60s. With <15 data points
+6. `detector.py` polls `sales_metrics` every 60s. With <15 data points
    it falls back to z-score (σ > 3); otherwise it fits an Isolation
    Forest on revenue + order_count and flags outliers only on the
    high side of the median. Hits become `REVENUE_SPIKE` alerts.
-5. `evaluator.py` polls `kpi_thresholds`, computes each metric
+7. `evaluator.py` polls `kpi_thresholds`, computes each metric
    against its configured window, compares to warning/critical, and
    writes `KPI_VIOLATION` alerts. Thresholds can be edited in SQL at
    runtime.
-6. Power BI hits MySQL directly. Page refresh of 1 minute is enough
+8. Power BI hits MySQL directly. Page refresh of 1 minute is enough
    because aggregates are already pre-computed in `sales_metrics`.
 
 ## Schema relationships
@@ -109,6 +131,16 @@ erDiagram
 
 ## Key design calls
 
+- **Real catalog, synthesized transactions** — FakeStoreAPI gives
+  real product identity + prices + ratings, which is more credible
+  than pure Faker. Transactions are still synthesized (no public API
+  exposes live order data), but basket shapes come from real `/carts`
+  data, so the distribution of basket sizes and quantities is
+  empirical.
+- **FastAPI as the live edge** — one process owns the generator, the
+  Kafka producer, the WebSocket fan-out, and the HTTP trigger
+  surface. External consumers (a JS dashboard, a notebook) can tap
+  the same stream over WebSocket without touching Kafka.
 - **Kafka instead of files/sockets** — replayable and multi-consumer;
   the anomaly detector could also read the stream directly if needed.
 - **`foreachBatch` over `foreachSink`** — lets us write to multiple

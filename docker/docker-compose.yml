@@ -51,7 +51,10 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ../database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
-      - ../database/seed_products.sql:/docker-entrypoint-initdb.d/02_seed.sql
+      # seed_products.sql is the legacy Faker seed. With FakeStoreAPI, the
+      # catalog is hydrated at runtime by scripts/fakestore_sync.py.
+      # Uncomment the next line if you want fallback seed data available.
+      # - ../database/seed_products.sql:/docker-entrypoint-initdb.d/02_seed.sql
     command: --default-authentication-plugin=mysql_native_password
 
 volumes:

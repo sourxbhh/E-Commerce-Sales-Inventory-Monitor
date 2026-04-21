@@ -1,16 +1,25 @@
 # Real-Time E-Commerce Sales & Inventory Monitor
 
-End-to-end streaming pipeline that simulates e-commerce order traffic,
-processes it with Spark Structured Streaming, stores aggregates in MySQL,
-flags anomalies and KPI breaches in real time, and surfaces everything
-through a Power BI dashboard (DirectQuery, 1-minute page refresh).
+End-to-end streaming pipeline that pulls a **real product catalog from
+[FakeStoreAPI](https://fakestoreapi.com)**, generates live order traffic
+through a **FastAPI** service, processes it with Spark Structured
+Streaming, stores aggregates in MySQL, flags anomalies and KPI breaches
+in real time, and surfaces everything through a Power BI dashboard
+(DirectQuery, 1-minute page refresh).
 
 ```
-Python generator ─▶ Kafka ─▶ Spark Structured Streaming ─▶ MySQL ─▶ Power BI
-                                     │                       ▲
-                                     │                       │
-                                     └─ anomaly + KPI services ┘
+FakeStoreAPI ─▶ FastAPI (WebSocket + Kafka producer)
+                     │
+                     ▼
+                   Kafka ─▶ Spark Structured Streaming ─▶ MySQL ─▶ Power BI
+                                                          ▲
+                                                          │
+                              anomaly + KPI services ─────┘
 ```
+
+Real product identity and prices (20 SKUs across 4 categories); orders
+are synthesized against the real catalog using real basket-size
+distributions mined from FakeStoreAPI's `/carts` endpoint.
 
 Full architecture, design decisions, and cloud-migration paths live in
 the [`docs/`](docs/) folder.
@@ -20,8 +29,8 @@ the [`docs/`](docs/) folder.
 | Phase | Deliverable | Where |
 |---|---|---|
 | 1 — Scaffold | Structure, `.env`, docker-compose | [`docker/`](docker/), [`.env.example`](.env.example) |
-| 2 — Data model | 8-table MySQL schema + 80 seeded products | [`database/`](database/) |
-| 3 — Order generator | Faker + Kafka + burst injection | [`generator/`](generator/order_producer.py) |
+| 2 — Data model | 8-table MySQL schema, catalog hydrated from FakeStoreAPI | [`database/`](database/) |
+| 3 — Live edge | FastAPI + WebSocket + real catalog + Kafka producer | [`api/`](api/), [`fakestore/`](fakestore/) |
 | 4 — Spark streaming | Watermarked windows, upsert sinks, inventory + low-stock | [`streaming/`](streaming/stream_processor.py) |
 | 5 — Anomaly detection | z-score + Isolation Forest | [`anomaly/`](anomaly/detector.py) |
 | 6 — KPI alerts | Threshold-driven, config-as-data | [`kpi/`](kpi/evaluator.py) |
@@ -39,15 +48,20 @@ python -m venv .venv
 pip install -r requirements.txt
 cp .env.example .env
 
-# 2. bring up Kafka + MySQL (schema + products seed automatically)
+# 2. bring up Kafka + MySQL (schema auto-applied)
 docker compose -f docker/docker-compose.yml up -d
 
-# 3. launch every worker
+# 3. launch the stack (hydrates catalog from FakeStoreAPI, starts FastAPI + Spark + detectors)
 python scripts/orchestrator.py up
 python scripts/orchestrator.py status     # verify
 
-# 4. trigger a demo spike
-python scripts/demo_controller.py burst --size 60 --duration 15
+# 4. explore the live edge
+#    http://localhost:8000/docs        -> Swagger UI
+#    ws://localhost:8000/stream/orders -> WebSocket feed
+#    http://localhost:8080             -> Kafka UI
+
+# 5. trigger a demo spike
+python scripts/demo_controller.py burst --size 60
 ```
 
 Power BI: open `dashboard/connection.pbids` (DirectQuery, MySQL on
@@ -74,10 +88,12 @@ Kafka, Zookeeper, MySQL, and Kafka UI all run from
 | `python scripts/orchestrator.py status` | component health + docker ps |
 | `python scripts/orchestrator.py logs <name> --tail 40` | tail a worker log |
 | `python scripts/orchestrator.py down` | stop workers + compose down |
-| `python scripts/demo_controller.py burst` | fire a revenue-spike demo |
-| `python scripts/demo_controller.py drain --product 1001` | fire a low-stock demo |
+| `python scripts/orchestrator.py resync` | re-pull catalog from FakeStoreAPI |
+| `python scripts/demo_controller.py burst --size 60` | POST `/trigger/burst` → revenue spike |
+| `python scripts/demo_controller.py drain --product 1` | POST `/trigger/drain` → low-stock demo |
+| `python scripts/demo_controller.py list-products` | inspect hydrated catalog |
 | `python scripts/demo_controller.py clear-alerts` | reset alerts table |
-| `python scripts/demo_controller.py reset-stock` | restore seeded stock |
+| `python scripts/demo_controller.py reset-stock` | wipe facts + re-sync catalog |
 
 ## Power BI data sources
 
@@ -99,6 +115,7 @@ Relationships (one-to-many):
 
 ## Documentation
 
+- [`docs/FAKESTORE.md`](docs/FAKESTORE.md) — FakeStoreAPI integration, FastAPI endpoints, troubleshooting
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system diagram, data flow, design calls
 - [`docs/LEARNINGS.md`](docs/LEARNINGS.md) — non-obvious decisions and trade-offs
 - [`docs/CLOUD_DEPLOYMENT.md`](docs/CLOUD_DEPLOYMENT.md) — GCP / BigQuery / Railway paths
@@ -108,15 +125,17 @@ Relationships (one-to-many):
 ## Layout
 
 ```
-generator/   Faker + Kafka producer, shared config
+api/         FastAPI live-edge: order engine, WebSocket, Kafka producer
+fakestore/   httpx client for fakestoreapi.com
+generator/   shared config (and legacy Faker producer as fallback)
 streaming/   Spark Structured Streaming job
-database/    schema.sql, seed_products.sql
+database/    schema.sql + migrations/  (catalog hydrated from FakeStoreAPI)
 docker/      docker-compose.yml
 anomaly/     detector.py (z-score + Isolation Forest)
 kpi/         evaluator.py (threshold-driven)
 dashboard/   Power BI assets: .pbids, DAX, M queries, theme, design doc
-scripts/     orchestrator, demo controller, verify setup
-docs/        architecture, learnings, cloud, promotion
+scripts/     orchestrator, demo controller, fakestore_sync, verify_setup
+docs/        architecture, learnings, FakeStoreAPI, cloud, promotion
 ```
 
 ## Why this project

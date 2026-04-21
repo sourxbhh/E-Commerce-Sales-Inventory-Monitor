@@ -6,20 +6,26 @@ CREATE DATABASE IF NOT EXISTS ecommerce_rt;
 USE ecommerce_rt;
 
 -- ------------------------------------------------------------
--- products
+-- products  (hydrated from FakeStoreAPI by scripts/fakestore_sync.py)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS products (
     product_id         INT PRIMARY KEY,
-    name               VARCHAR(200) NOT NULL,
+    name               VARCHAR(500) NOT NULL,
     category           VARCHAR(80)  NOT NULL,
     price              DECIMAL(10,2) NOT NULL,
     stock_quantity     INT NOT NULL,
     reorder_threshold  INT NOT NULL,
     popularity_weight  DECIMAL(5,2) DEFAULT 1.00,
+    source             VARCHAR(40)  DEFAULT 'fakestoreapi',
+    image_url          VARCHAR(500),
+    description        TEXT,
+    rating_rate        DECIMAL(3,2),
+    rating_count       INT,
     created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_category (category),
-    INDEX idx_stock (stock_quantity, reorder_threshold)
+    INDEX idx_stock (stock_quantity, reorder_threshold),
+    INDEX idx_source (source)
 );
 
 -- ------------------------------------------------------------

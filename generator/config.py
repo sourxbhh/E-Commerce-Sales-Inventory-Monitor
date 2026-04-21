@@ -22,6 +22,10 @@ def _get_int(name: str, default: int) -> int:
     return int(os.getenv(name, str(default)))
 
 
+def _get_float(name: str, default: float) -> float:
+    return float(os.getenv(name, str(default)))
+
+
 def _get_bool(name: str, default: bool) -> bool:
     return os.getenv(name, str(default)).lower() in {"1", "true", "yes"}
 
@@ -57,13 +61,36 @@ class MySQLConfig:
 
 
 @dataclass(frozen=True)
+class FakeStoreConfig:
+    base_url: str = _get("FAKESTORE_BASE_URL", "https://fakestoreapi.com")
+    sync_interval: int = _get_int("CATALOG_SYNC_INTERVAL", 300)
+
+
+@dataclass(frozen=True)
+class APIConfig:
+    host: str = _get("API_HOST", "0.0.0.0")
+    port: int = _get_int("API_PORT", 8000)
+    order_min: float = _get_float("ORDER_RATE_MIN_SECONDS", 2.0)
+    order_max: float = _get_float("ORDER_RATE_MAX_SECONDS", 5.0)
+
+
+@dataclass(frozen=True)
 class GeneratorConfig:
+    """Legacy Faker generator (kept for fallback); superseded by the FastAPI service."""
     interval_min: int = _get_int("ORDER_INTERVAL_MIN", 2)
     interval_max: int = _get_int("ORDER_INTERVAL_MAX", 5)
     burst_enabled: bool = _get_bool("BURST_ENABLED", True)
     burst_every_seconds: int = _get_int("BURST_EVERY_SECONDS", 180)
     burst_size: int = _get_int("BURST_SIZE", 30)
     burst_duration: int = _get_int("BURST_DURATION_SECONDS", 10)
+
+
+@dataclass(frozen=True)
+class BurstConfig:
+    enabled: bool = _get_bool("BURST_ENABLED", True)
+    every_seconds: int = _get_int("BURST_EVERY_SECONDS", 180)
+    size: int = _get_int("BURST_SIZE", 30)
+    duration: int = _get_int("BURST_DURATION_SECONDS", 10)
 
 
 @dataclass(frozen=True)
@@ -80,6 +107,9 @@ class KPIConfig:
 
 KAFKA = KafkaConfig()
 MYSQL = MySQLConfig()
+FAKESTORE = FakeStoreConfig()
+API = APIConfig()
 GENERATOR = GeneratorConfig()
+BURST = BurstConfig()
 ANOMALY = AnomalyConfig()
 KPI = KPIConfig()

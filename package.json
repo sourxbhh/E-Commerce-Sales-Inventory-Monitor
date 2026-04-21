@@ -1,0 +1,27 @@
+{
+  "name": "e-commerce",
+  "version": "1.0.0",
+  "description": "End-to-end streaming pipeline that pulls a **real product catalog from [FakeStoreAPI](https://fakestoreapi.com)**, generates live order traffic through a **FastAPI** service, processes it with Spark Structured Streaming, stores aggregates in MySQL, flags anomalies and KPI breaches in real time, and surfaces everything through a Power BI dashboard (DirectQuery, 1-minute page refresh).",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sourxbhh/E-Commerce-Sales-Inventory-Monitor.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/sourxbhh/E-Commerce-Sales-Inventory-Monitor/issues"
+  },
+  "homepage": "https://github.com/sourxbhh/E-Commerce-Sales-Inventory-Monitor#readme",
+  "dependencies": {
+    "docx": "^9.6.1"
+  }
+}

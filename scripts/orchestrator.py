@@ -4,10 +4,17 @@ Cross-platform launcher for the whole stack.
     python scripts/orchestrator.py up      # boot everything
     python scripts/orchestrator.py down    # stop all services
     python scripts/orchestrator.py status  # show component health
+    python scripts/orchestrator.py logs api --tail 40
 
-Works on Windows, macOS, and Linux. Uses the venv python for worker
-subprocesses, a process registry at .orchestrator.json, and streams
-each component's stdout/stderr to ./logs/<component>.log.
+Components (post-FakeStoreAPI migration):
+    spark     - Structured Streaming job consuming Kafka -> MySQL
+    api       - FastAPI live-edge (real catalog, generator, WS)
+    anomaly   - z-score + IsolationForest detector
+    kpi       - threshold-driven KPI evaluator
+
+On `up`, the orchestrator also runs a one-shot scripts/fakestore_sync.py
+to hydrate the products table from fakestoreapi.com before launching
+the FastAPI service.
 """
 from __future__ import annotations
 
@@ -38,7 +45,7 @@ SPARK_PACKAGES = (
     "com.mysql:mysql-connector-j:8.4.0"
 )
 
-COMPONENTS = ["spark", "generator", "anomaly", "kpi"]
+COMPONENTS = ["spark", "api", "anomaly", "kpi"]
 
 
 # ---------------------------------------------------------------------------
@@ -134,26 +141,27 @@ def cmd_up() -> None:
         print("!! MySQL did not come up in time")
         sys.exit(1)
 
-    # Topic creation is idempotent via docker exec
     print(">> ensuring topics")
-    subprocess.run(
-        [
-            "docker", "exec", "ecom_kafka",
-            "kafka-topics", "--bootstrap-server", "kafka:29092",
-            "--create", "--if-not-exists",
-            "--topic", "orders", "--partitions", "3", "--replication-factor", "1",
-        ],
+    for topic in ("orders", "inventory-updates"):
+        subprocess.run(
+            [
+                "docker", "exec", "ecom_kafka",
+                "kafka-topics", "--bootstrap-server", "kafka:29092",
+                "--create", "--if-not-exists",
+                "--topic", topic, "--partitions", "3", "--replication-factor", "1",
+            ],
+            check=False,
+        )
+
+    print(">> hydrating product catalog from FakeStoreAPI")
+    sync = subprocess.run(
+        [PYTHON, str(ROOT / "scripts" / "fakestore_sync.py")],
+        cwd=str(ROOT),
         check=False,
     )
-    subprocess.run(
-        [
-            "docker", "exec", "ecom_kafka",
-            "kafka-topics", "--bootstrap-server", "kafka:29092",
-            "--create", "--if-not-exists",
-            "--topic", "inventory-updates", "--partitions", "3", "--replication-factor", "1",
-        ],
-        check=False,
-    )
+    if sync.returncode != 0:
+        print("!! catalog sync failed; aborting")
+        sys.exit(1)
 
     reg: Dict[str, int] = {}
 
@@ -171,13 +179,31 @@ def cmd_up() -> None:
     print(">> giving Spark 25s to warm up")
     time.sleep(25)
 
-    print(">> launching Python workers")
-    reg["generator"] = _spawn("generator", [PYTHON, "-m", "generator.order_producer"])
-    reg["anomaly"]   = _spawn("anomaly",   [PYTHON, "-m", "anomaly.detector"])
-    reg["kpi"]       = _spawn("kpi",       [PYTHON, "-m", "kpi.evaluator"])
+    print(">> launching FastAPI live-edge")
+    reg["api"] = _spawn(
+        "api",
+        [
+            PYTHON, "-m", "uvicorn", "api.main:app",
+            "--host", "0.0.0.0", "--port", "8000",
+        ],
+    )
+
+    print(">> waiting for API on :8000")
+    if not _wait_port("localhost", 8000, 30):
+        print("!! API did not start; check logs/api.log")
+
+    print(">> launching anomaly detector + KPI evaluator")
+    reg["anomaly"] = _spawn("anomaly", [PYTHON, "-m", "anomaly.detector"])
+    reg["kpi"]     = _spawn("kpi",     [PYTHON, "-m", "kpi.evaluator"])
 
     _save_registry(reg)
-    print("\nAll components running. `python scripts/orchestrator.py status` to check.")
+    print()
+    print("All components running.")
+    print("  http://localhost:8000/health      (live-edge health)")
+    print("  http://localhost:8000/docs        (API docs, Swagger UI)")
+    print("  ws://localhost:8000/stream/orders (WebSocket order stream)")
+    print("  http://localhost:8080             (Kafka UI)")
+    print("  python scripts/orchestrator.py status")
 
 
 def cmd_status() -> None:
@@ -219,12 +245,21 @@ def cmd_logs(name: str, tail: int) -> None:
             print(repr(line))
 
 
+def cmd_resync() -> None:
+    subprocess.run(
+        [PYTHON, str(ROOT / "scripts" / "fakestore_sync.py")],
+        cwd=str(ROOT),
+        check=False,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("up")
     sub.add_parser("down")
     sub.add_parser("status")
+    sub.add_parser("resync", help="re-pull product catalog from FakeStoreAPI")
     logs = sub.add_parser("logs")
     logs.add_argument("name", choices=COMPONENTS)
     logs.add_argument("--tail", type=int, default=40)
@@ -236,6 +271,8 @@ def main() -> None:
         cmd_down()
     elif args.cmd == "status":
         cmd_status()
+    elif args.cmd == "resync":
+        cmd_resync()
     elif args.cmd == "logs":
         cmd_logs(args.name, args.tail)
 
