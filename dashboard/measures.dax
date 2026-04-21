@@ -1,0 +1,236 @@
+// =============================================================
+// DAX measures — paste each block via Modeling → New Measure.
+// Organized into display folders by home-table.
+// All measures are DirectQuery-safe (no time-intelligence that
+// requires Import mode, no variables that break folding).
+// =============================================================
+
+// -------------------------------------------------------------
+// Home table: orders              Folder: "Revenue"
+// -------------------------------------------------------------
+
+Total Revenue =
+    SUM ( orders[total_amount] )
+
+Total Revenue Today =
+    CALCULATE (
+        [Total Revenue],
+        FILTER (
+            orders,
+            orders[order_timestamp] >= TODAY ()
+                && orders[order_timestamp] < TODAY () + 1
+        )
+    )
+
+Total Revenue Yesterday =
+    CALCULATE (
+        [Total Revenue],
+        FILTER (
+            orders,
+            orders[order_timestamp] >= TODAY () - 1
+                && orders[order_timestamp] < TODAY ()
+        )
+    )
+
+Revenue vs Yesterday % =
+    DIVIDE (
+        [Total Revenue Today] - [Total Revenue Yesterday],
+        [Total Revenue Yesterday]
+    )
+
+Revenue Last 5 Min =
+    CALCULATE (
+        SUM ( sales_metrics[revenue] ),
+        sales_metrics[window_start] >= NOW () - ( 5 / 1440 )
+    )
+
+Revenue Last 1 Hour =
+    CALCULATE (
+        SUM ( sales_metrics[revenue] ),
+        sales_metrics[window_start] >= NOW () - ( 1 / 24 )
+    )
+
+Revenue Prior 5 Min =
+    CALCULATE (
+        SUM ( sales_metrics[revenue] ),
+        sales_metrics[window_start] >= NOW () - ( 10 / 1440 ),
+        sales_metrics[window_start] < NOW () - ( 5 / 1440 )
+    )
+
+Revenue Trend Arrow =
+    VAR diff = [Revenue Last 5 Min] - [Revenue Prior 5 Min]
+    RETURN
+        IF ( diff > 0, "▲", IF ( diff < 0, "▼", "▶" ) )
+
+
+// -------------------------------------------------------------
+// Home table: orders              Folder: "Orders"
+// -------------------------------------------------------------
+
+Order Count =
+    DISTINCTCOUNT ( orders[order_id] )
+
+Orders Today =
+    CALCULATE (
+        [Order Count],
+        FILTER (
+            orders,
+            orders[order_timestamp] >= TODAY ()
+                && orders[order_timestamp] < TODAY () + 1
+        )
+    )
+
+Average Order Value =
+    DIVIDE ( [Total Revenue], [Order Count] )
+
+Average Order Value Today =
+    DIVIDE ( [Total Revenue Today], [Orders Today] )
+
+Orders Last 5 Min =
+    CALCULATE (
+        SUM ( sales_metrics[order_count] ),
+        sales_metrics[window_start] >= NOW () - ( 5 / 1440 )
+    )
+
+
+// -------------------------------------------------------------
+// Home table: order_items         Folder: "Volume"
+// -------------------------------------------------------------
+
+Units Sold =
+    SUM ( order_items[quantity] )
+
+Units Sold Today =
+    CALCULATE (
+        [Units Sold],
+        FILTER (
+            orders,
+            orders[order_timestamp] >= TODAY ()
+                && orders[order_timestamp] < TODAY () + 1
+        )
+    )
+
+Line Revenue =
+    SUMX ( order_items, order_items[quantity] * order_items[unit_price] )
+
+
+// -------------------------------------------------------------
+// Home table: products            Folder: "Inventory"
+// -------------------------------------------------------------
+
+Total Stock =
+    SUM ( products[stock_quantity] )
+
+Low Stock Count =
+    CALCULATE (
+        DISTINCTCOUNT ( products[product_id] ),
+        FILTER (
+            products,
+            products[stock_quantity] <= products[reorder_threshold]
+        )
+    )
+
+Out of Stock Count =
+    CALCULATE (
+        DISTINCTCOUNT ( products[product_id] ),
+        FILTER ( products, products[stock_quantity] = 0 )
+    )
+
+Stock Coverage Days =
+    VAR _avgDaily = DIVIDE ( [Units Sold Today], 1 )
+    RETURN DIVIDE ( [Total Stock], _avgDaily )
+
+Stock Health Icon =
+    VAR _ratio =
+        DIVIDE (
+            SELECTEDVALUE ( products[stock_quantity] ),
+            SELECTEDVALUE ( products[reorder_threshold] )
+        )
+    RETURN
+        SWITCH (
+            TRUE (),
+            SELECTEDVALUE ( products[stock_quantity] ) = 0, "🔴 OUT",
+            _ratio <= 0.5, "🔴 CRIT",
+            _ratio <= 1, "🟠 LOW",
+            _ratio <= 2, "🟡 OK",
+            "🟢 HEALTHY"
+        )
+
+
+// -------------------------------------------------------------
+// Home table: alerts              Folder: "Alerts"
+// -------------------------------------------------------------
+
+Active Alerts =
+    CALCULATE (
+        COUNTROWS ( alerts ),
+        alerts[resolved] = 0
+    )
+
+Critical Alerts =
+    CALCULATE (
+        COUNTROWS ( alerts ),
+        alerts[severity] = "CRITICAL",
+        alerts[resolved] = 0
+    )
+
+Anomaly Count Last Hour =
+    CALCULATE (
+        COUNTROWS ( alerts ),
+        alerts[alert_type] = "REVENUE_SPIKE",
+        alerts[detected_at] >= NOW () - ( 1 / 24 )
+    )
+
+Low Stock Alerts Active =
+    CALCULATE (
+        COUNTROWS ( alerts ),
+        alerts[alert_type] = "LOW_STOCK",
+        alerts[resolved] = 0
+    )
+
+KPI Violations Last Hour =
+    CALCULATE (
+        COUNTROWS ( alerts ),
+        alerts[alert_type] = "KPI_VIOLATION",
+        alerts[detected_at] >= NOW () - ( 1 / 24 )
+    )
+
+Alerts Last 15 Min =
+    CALCULATE (
+        COUNTROWS ( alerts ),
+        alerts[detected_at] >= NOW () - ( 15 / 1440 )
+    )
+
+
+// -------------------------------------------------------------
+// Conditional formatting helpers (Folder: "Formatting")
+// -------------------------------------------------------------
+
+// Background colour for severity columns
+Severity Color =
+    SWITCH (
+        SELECTEDVALUE ( alerts[severity] ),
+        "CRITICAL", "#C0392B",
+        "HIGH",     "#E67E22",
+        "WARNING",  "#F1C40F",
+        "#BDC3C7"
+    )
+
+// Stock row background colour
+Stock Row Color =
+    VAR _stock = SELECTEDVALUE ( products[stock_quantity] )
+    VAR _thr   = SELECTEDVALUE ( products[reorder_threshold] )
+    RETURN
+        SWITCH (
+            TRUE (),
+            _stock = 0,           "#FADBD8",
+            _stock <= _thr / 2,   "#FDEBD0",
+            _stock <= _thr,       "#FCF3CF",
+            "#FFFFFF"
+        )
+
+// Revenue trend card colour (vs prior 5-min window)
+Revenue Trend Color =
+    VAR diff = [Revenue Last 5 Min] - [Revenue Prior 5 Min]
+    RETURN
+        IF ( diff >= 0, "#27AE60", "#C0392B" )

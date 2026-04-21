@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+spark-warehouse/
+checkpoints/
+*.log
+.ipynb_checkpoints/
+dashboard/*.pbix.bak

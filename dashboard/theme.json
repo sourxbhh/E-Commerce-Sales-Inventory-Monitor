@@ -1,0 +1,70 @@
+{
+  "name": "EcomRealtimeMonitor",
+  "dataColors": [
+    "#2E86DE",
+    "#27AE60",
+    "#E67E22",
+    "#C0392B",
+    "#8E44AD",
+    "#16A085",
+    "#F1C40F",
+    "#34495E"
+  ],
+  "background": "#F4F6F8",
+  "foreground": "#1B263B",
+  "tableAccent": "#2E86DE",
+  "good": "#27AE60",
+  "neutral": "#95A5A6",
+  "bad": "#C0392B",
+  "maximum": "#1B4F72",
+  "center": "#85C1E9",
+  "minimum": "#FAD7A0",
+  "null": "#BDC3C7",
+  "textClasses": {
+    "title": {
+      "fontSize": 18,
+      "fontFace": "Segoe UI Semibold",
+      "color": "#1B263B"
+    },
+    "header": {
+      "fontSize": 12,
+      "fontFace": "Segoe UI",
+      "color": "#566573"
+    },
+    "label": {
+      "fontSize": 11,
+      "fontFace": "Segoe UI",
+      "color": "#2C3E50"
+    }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "background": [
+          {
+            "show": true,
+            "color": { "solid": { "color": "#FFFFFF" } },
+            "transparency": 0
+          }
+        ],
+        "border": [
+          {
+            "show": true,
+            "color": { "solid": { "color": "#E5E7EB" } },
+            "radius": 6
+          }
+        ]
+      }
+    },
+    "card": {
+      "*": {
+        "categoryLabels": [
+          { "show": true, "color": { "solid": { "color": "#566573" } }, "fontSize": 11 }
+        ],
+        "labels": [
+          { "color": { "solid": { "color": "#1B263B" } }, "fontSize": 32, "fontFamily": "Segoe UI Semibold" }
+        ]
+      }
+    }
+  }
+}
