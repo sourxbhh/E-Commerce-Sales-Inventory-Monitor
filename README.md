@@ -66,7 +66,7 @@ docker/         # docker-compose.yml (Kafka, Airflow, etc.)
 - [x] **M2** DuckDB warehouse + dbt models + tests
 - [x] **M3** Kafka replay producer + Spark streaming consumer
 - [x] **M4** Airflow DAG + Great Expectations
-- [ ] **M5** FastAPI + Power BI dashboard
+- [x] **M5** FastAPI + Power BI dashboard
 - [ ] **M6** GitHub Actions CI/CD
 - [ ] **M7** Polish, screenshots, writeup
 

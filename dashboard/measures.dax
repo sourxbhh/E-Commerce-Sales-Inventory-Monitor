@@ -1,0 +1,34 @@
+-- DAX measures for the Olist report (model: fct_orders + dim_* by order_id /
+-- customer_id / product_id). Create each in Power BI under a "Measures" table.
+
+Total Revenue       = SUM ( fct_orders[order_value] )
+
+Total Orders        = COUNTROWS ( fct_orders )
+
+Avg Order Value     = DIVIDE ( [Total Revenue], [Total Orders] )
+
+Avg Review Score    = AVERAGE ( fct_orders[review_score] )
+
+Delivered Orders    =
+    CALCULATE ( [Total Orders], fct_orders[order_status] = "delivered" )
+
+Avg Delivery Days   =
+    CALCULATE (
+        AVERAGE ( fct_orders[delivery_days] ),
+        fct_orders[order_status] = "delivered"
+    )
+
+Late Deliveries     =
+    CALCULATE ( [Total Orders], fct_orders[is_late] = TRUE () )
+
+Late Delivery %     =
+    DIVIDE ( [Late Deliveries], [Delivered Orders] )
+
+Avg Items per Order = DIVIDE ( SUM ( fct_orders[n_items] ), [Total Orders] )
+
+-- Time intelligence (needs a Date table marked as such, related to purchase_date)
+Revenue YTD         = TOTALYTD ( [Total Revenue], 'Date'[Date] )
+
+Revenue MoM %       =
+    VAR Prev = CALCULATE ( [Total Revenue], DATEADD ( 'Date'[Date], -1, MONTH ) )
+    RETURN DIVIDE ( [Total Revenue] - Prev, Prev )

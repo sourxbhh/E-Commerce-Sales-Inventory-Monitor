@@ -1,0 +1,14 @@
+{
+  "version": "0.1",
+  "connections": [
+    {
+      "details": {
+        "protocol": "odbc",
+        "address": {
+          "connectionString": "Driver={DuckDB Driver};Database=D:\\Projects\\DataAnalyst\\E-Commerce\\warehouse\\olist.duckdb;access_mode=READ_ONLY"
+        }
+      },
+      "mode": "Import"
+    }
+  ]
+}

@@ -73,6 +73,7 @@ Thumbs.db
 .claude/
 
 # --- Power BI ---
+*.pbix
 dashboard/powerbi/*.pbix.bak
 ~$*.pbix
 
