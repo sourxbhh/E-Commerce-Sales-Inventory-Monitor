@@ -23,6 +23,7 @@ env/
 # --- Data (never commit) ---
 data/raw/
 data/processed/
+data/streaming/
 data/*.csv
 data/*.parquet
 data/*.zip

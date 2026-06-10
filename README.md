@@ -64,7 +64,7 @@ docker/         # docker-compose.yml (Kafka, Airflow, etc.)
 - [x] **M0** Wipe + baseline scaffolding
 - [x] **M1** Olist → parquet → ADLS Gen2, Terraform `azurerm` module
 - [x] **M2** DuckDB warehouse + dbt models + tests
-- [ ] **M3** Kafka replay producer + Spark streaming consumer
+- [x] **M3** Kafka replay producer + Spark streaming consumer
 - [ ] **M4** Airflow DAG + Great Expectations
 - [ ] **M5** FastAPI + Power BI dashboard
 - [ ] **M6** GitHub Actions CI/CD

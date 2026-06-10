@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     warehouse_schema_staging: str = "staging"
     warehouse_schema_marts: str = "marts"
 
+    # Kafka
+    kafka_bootstrap_servers: str = "localhost:9092"
+    kafka_topic_orders: str = "olist.orders"
+    kafka_topic_order_items: str = "olist.order_items"
+    kafka_topic_payments: str = "olist.payments"
+
     @property
     def adls_account_url(self) -> str:
         return f"https://{self.azure_storage_account}.dfs.core.windows.net"
