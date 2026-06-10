@@ -68,6 +68,9 @@ Thumbs.db
 .vscode/
 *.swp
 
+# --- Claude Code (personal, local) ---
+.claude/settings.local.json
+
 # --- Power BI ---
 dashboard/powerbi/*.pbix.bak
 ~$*.pbix
