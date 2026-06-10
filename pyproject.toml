@@ -1,0 +1,30 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "warehouse/target", "warehouse/dbt_packages"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "PL"]
+ignore = ["PLR0913", "PLR2004"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --cov=. --cov-report=term-missing"
+markers = [
+    "integration: tests that require live containers (kafka, duckdb files, etc.)",
+    "slow: tests that take more than a few seconds",
+]
+
+[tool.coverage.run]
+omit = [
+    ".venv/*",
+    "tests/*",
+    "warehouse/*",
+    "orchestration/airflow/*",
+]
+
+[tool.sqlfluff.core]
+dialect = "duckdb"
+templater = "dbt"
+exclude_rules = ["L034"]
+max_line_length = 120
