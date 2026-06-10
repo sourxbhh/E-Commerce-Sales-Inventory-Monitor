@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: fct_orders
+    description: Order-grain fact with item/payment aggregates, review score, delivery metrics.
+    columns:
+      - name: order_id
+        description: Primary key.
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_id
+      - name: order_value
+        description: items_value + freight_value.
+        data_tests: [not_null]
+      - name: review_score
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+              config:
+                where: "review_score is not null"
+
+  - name: dim_customers
+    description: Customer dimension with geolocation centroid.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+
+  - name: dim_products
+    description: Product dimension with English category names.
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+
+  - name: dim_sellers
+    description: Seller dimension with geolocation centroid.
+    columns:
+      - name: seller_id
+        data_tests: [unique, not_null]

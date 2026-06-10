@@ -1,0 +1,25 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw Olist tables loaded from partitioned Parquet by `batch.load_duckdb`.
+    schema: raw
+    tables:
+      - name: orders
+        description: One row per order. Partitioned on year_month of purchase upstream.
+      - name: order_items
+        description: One row per item within an order (order_id + order_item_id grain).
+      - name: order_payments
+        description: One row per payment record (order_id + payment_sequential grain).
+      - name: order_reviews
+        description: Customer review per order.
+      - name: customers
+        description: Customer per order; customer_unique_id ties repeat buyers together.
+      - name: products
+        description: Product catalog with physical dimensions.
+      - name: sellers
+        description: Seller registry.
+      - name: geolocation
+        description: Brazilian zip-code prefix lat/lng lookup (~1M rows, not deduped).
+      - name: product_category_name_translation
+        description: Portuguese -> English product category names.

@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     azure_client_id: str = ""
     azure_client_secret: str = ""
 
+    # Warehouse (DuckDB)
+    duckdb_path: Path = ROOT / "warehouse" / "olist.duckdb"
+    warehouse_schema_raw: str = "raw"
+    warehouse_schema_staging: str = "staging"
+    warehouse_schema_marts: str = "marts"
+
     @property
     def adls_account_url(self) -> str:
         return f"https://{self.azure_storage_account}.dfs.core.windows.net"

@@ -1,0 +1,10 @@
+# DuckDB is the default warehouse. Swapping to Snowflake is a one-target change:
+# add a `snowflake` output below and flip `target`. Keep mart SQL portable.
+olist:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "olist.duckdb"
+      threads: 4
+      schema: main
