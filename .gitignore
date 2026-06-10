@@ -69,7 +69,7 @@ Thumbs.db
 *.swp
 
 # --- Claude Code (personal, local) ---
-.claude/settings.local.json
+.claude/
 
 # --- Power BI ---
 dashboard/powerbi/*.pbix.bak
