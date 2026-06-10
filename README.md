@@ -67,7 +67,7 @@ docker/         # docker-compose.yml (Kafka, Airflow, etc.)
 - [x] **M3** Kafka replay producer + Spark streaming consumer
 - [x] **M4** Airflow DAG + Great Expectations
 - [x] **M5** FastAPI + Power BI dashboard
-- [ ] **M6** GitHub Actions CI/CD
+- [x] **M6** GitHub Actions CI/CD
 - [ ] **M7** Polish, screenshots, writeup
 
 See [`CLAUDE.md`](CLAUDE.md) for agent / contributor guidance.

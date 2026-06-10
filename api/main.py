@@ -30,12 +30,12 @@ def _query(sql: str, params: list | None = None) -> list[dict]:
     cur = _con.cursor()
     rel = cur.execute(sql, params or [])
     cols = [d[0] for d in rel.description]
-    return [dict(zip(cols, row)) for row in rel.fetchall()]
+    return [dict(zip(cols, row, strict=False)) for row in rel.fetchall()]
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _con
+    global _con  # noqa: PLW0603 — app-level singleton set once in lifespan
     if not settings.duckdb_path.exists():
         raise RuntimeError(
             f"{settings.duckdb_path} not found — run `python -m batch.load_duckdb` "

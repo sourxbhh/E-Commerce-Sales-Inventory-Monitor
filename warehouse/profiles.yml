@@ -5,6 +5,7 @@ olist:
   outputs:
     dev:
       type: duckdb
-      path: "olist.duckdb"
+      # defaults to the local warehouse; tests/CI override DUCKDB_PATH to a temp file
+      path: "{{ env_var('DUCKDB_PATH', 'olist.duckdb') }}"
       threads: 4
       schema: main

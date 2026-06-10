@@ -1,0 +1,20 @@
+[sqlfluff]
+dialect = duckdb
+templater = dbt
+max_line_length = 120
+# ST06 (column ordering) conflicts with our explicit select ordering in marts;
+# ST02 would rewrite an intentional boolean CASE (is_late) as COALESCE.
+exclude_rules = ST06, ST02
+
+[sqlfluff:templater:dbt]
+project_dir = .
+profiles_dir = .
+
+[sqlfluff:indentation]
+tab_space_size = 4
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower

@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  python-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install ruff==0.7.4
+      - name: ruff
+        run: ruff check .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install deps (skip airflow/pyspark/kafka — not exercised by tests)
+        run: |
+          grep -vE '^apache-airflow|^pyspark|^confluent-kafka' requirements.txt > req-ci.txt
+          pip install -r req-ci.txt
+      - name: pytest (loader + dbt build + GE + API on synthetic fixture)
+        run: pytest
+
+  sql-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install deps
+        run: |
+          grep -vE '^apache-airflow|^pyspark|^confluent-kafka' requirements.txt > req-ci.txt
+          pip install -r req-ci.txt
+      - name: Build a fixture warehouse so the dbt templater can compile
+        env:
+          PROCESSED_DIR: ${{ github.workspace }}/ci_data/processed
+          DUCKDB_PATH: ${{ github.workspace }}/warehouse/olist.duckdb
+        run: |
+          python -c "from tests.sample_data import write_processed_parquet; write_processed_parquet('$PROCESSED_DIR')"
+          python -m batch.load_duckdb
+          (cd warehouse && dbt build --profiles-dir . --no-partial-parse)
+      - name: sqlfluff lint
+        env:
+          DUCKDB_PATH: ${{ github.workspace }}/warehouse/olist.duckdb
+        run: cd warehouse && sqlfluff lint models/
+
+  docker:
+    needs: [python-lint, test, sql-lint]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lowercase image owner
+        id: img
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.img.outputs.owner }}/olist-api:latest
+            ghcr.io/${{ steps.img.outputs.owner }}/olist-api:${{ github.sha }}

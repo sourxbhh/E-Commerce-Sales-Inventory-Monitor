@@ -35,15 +35,15 @@ class TableSpec:
 
 
 TABLES: tuple[TableSpec, ...] = (
-    TableSpec("olist_orders_dataset.csv",                 "orders",           "order_purchase_timestamp"),
-    TableSpec("olist_order_items_dataset.csv",            "order_items"),
-    TableSpec("olist_order_payments_dataset.csv",         "order_payments"),
-    TableSpec("olist_order_reviews_dataset.csv",          "order_reviews",    "review_creation_date"),
-    TableSpec("olist_customers_dataset.csv",              "customers"),
-    TableSpec("olist_products_dataset.csv",               "products"),
-    TableSpec("olist_sellers_dataset.csv",                "sellers"),
-    TableSpec("olist_geolocation_dataset.csv",            "geolocation"),
-    TableSpec("product_category_name_translation.csv",    "product_category_name_translation"),
+    TableSpec("olist_orders_dataset.csv", "orders", "order_purchase_timestamp"),
+    TableSpec("olist_order_items_dataset.csv", "order_items"),
+    TableSpec("olist_order_payments_dataset.csv", "order_payments"),
+    TableSpec("olist_order_reviews_dataset.csv", "order_reviews", "review_creation_date"),
+    TableSpec("olist_customers_dataset.csv", "customers"),
+    TableSpec("olist_products_dataset.csv", "products"),
+    TableSpec("olist_sellers_dataset.csv", "sellers"),
+    TableSpec("olist_geolocation_dataset.csv", "geolocation"),
+    TableSpec("product_category_name_translation.csv", "product_category_name_translation"),
 )
 
 
@@ -95,8 +95,8 @@ def _convert(spec: TableSpec) -> None:
             compression="snappy",
             existing_data_behavior="overwrite_or_ignore",
         )
-        n_partitions = len(list(dst.glob("year_month=*")))
-        log.info("wrote %s rows to %s (%d partitions)", f"{table.num_rows:,}", dst.name, n_partitions)
+        n_parts = len(list(dst.glob("year_month=*")))
+        log.info("wrote %s rows to %s (%d partitions)", f"{table.num_rows:,}", dst.name, n_parts)
     else:
         pq.write_table(table, dst / "part-0.parquet", compression="snappy")
         log.info("wrote %s rows to %s", f"{table.num_rows:,}", dst.name)

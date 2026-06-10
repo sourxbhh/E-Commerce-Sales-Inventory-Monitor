@@ -43,7 +43,7 @@ def _rows(table: str, order_by: str | None, limit: int | None):
     cur = con.execute(sql)
     cols = [d[0] for d in cur.description]
     for row in cur.fetchall():
-        yield dict(zip(cols, row))
+        yield dict(zip(cols, row, strict=False))
     con.close()
 
 

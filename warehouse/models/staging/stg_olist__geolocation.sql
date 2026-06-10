@@ -6,9 +6,9 @@ with source as (
 
 select
     cast(geolocation_zip_code_prefix as varchar) as zip_code_prefix,
-    avg(cast(geolocation_lat as double))         as latitude,
-    avg(cast(geolocation_lng as double))         as longitude,
-    any_value(geolocation_city)                  as city,
-    any_value(geolocation_state)                 as state
+    avg(cast(geolocation_lat as double)) as latitude,
+    avg(cast(geolocation_lng as double)) as longitude,
+    any_value(geolocation_city) as city,
+    any_value(geolocation_state) as state
 from source
 group by 1
