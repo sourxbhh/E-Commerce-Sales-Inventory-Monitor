@@ -15,7 +15,7 @@ End-to-end analytics platform on the public **Brazilian Olist** e-commerce datas
 | Orchestration    | **Apache Airflow** (LocalExecutor, Docker)                                                   |
 | Serving          | **FastAPI** metrics API                                                                      |
 | BI / dashboard   | **Power BI** (.pbix on DuckDB ODBC) + Metabase fallback                                      |
-| CI/CD            | **GitHub Actions** — ruff, sqlfluff, pytest, dbt build, GE, Docker → GHCR                    |
+| CI/CD            | **GitHub Actions** — ruff, sqlfluff, pytest, dbt build, GE, Docker image build               |
 | Containerization | **Docker** + Docker Compose                                                                  |
 
 ## Architecture
@@ -148,8 +148,8 @@ duckdb warehouse/olist.duckdb -c ".read analytics/rfm.sql"
   Expectations → FastAPI) against a tiny [synthetic fixture](tests/sample_data.py),
   so CI needs no proprietary data.
 - **[GitHub Actions](.github/workflows/ci.yml)** runs four jobs on every PR:
-  `ruff`, `sqlfluff` (dbt templater), `pytest`, and a Docker build that pushes the
-  API image to **GHCR** on `main`.
+  `ruff`, `sqlfluff` (dbt templater), `pytest`, and a Docker build that validates
+  the API image builds cleanly on `main`.
 
 ## Screenshots
 
